@@ -1,0 +1,91 @@
+[
+  {
+    "id": "shopify-dawn-demo",
+    "origin": "https://theme-dawn-demo.myshopify.com",
+    "allowedPathPrefixes": [
+      "/",
+      "/products",
+      "/collections",
+      "/search",
+      "/policies",
+      "/pages",
+      "/cdn/shop"
+    ],
+    "searchPath": "/search",
+    "searchQueryParam": "q",
+    "readOnlyQueryRules": [
+      {
+        "pathPrefix": "/cdn/shop",
+        "names": ["v", "width"]
+      },
+      {
+        "pathPrefix": "/products",
+        "names": ["variant", "_pos", "_sid", "_ss"]
+      },
+      {
+        "pathPrefix": "/collections",
+        "names": ["page", "sort_by"]
+      }
+    ],
+    "allowLoopback": false,
+    "entryPath": "/?utm_source=chatgpt.com"
+  },
+  {
+    "id": "saleor-demo",
+    "origin": "https://demo.saleor.io",
+    "allowedPathPrefixes": [
+      "/en/default/products",
+      "/en/default/categories",
+      "/en/default/collections",
+      "/en/default/search",
+      "/_next/static"
+    ],
+    "searchPath": "/en/default/search",
+    "searchQueryParam": "query",
+    "readOnlyQueryRules": [
+      {
+        "pathPrefix": "/en/default/products",
+        "names": ["cursor", "direction"]
+      }
+    ],
+    "allowLoopback": false,
+    "entryPath": "/en/default/products?cursor=WyJkYXJrLXBvbHlnb24tdGVlIiwiMTM4Il0%3D&direction=next"
+  },
+  {
+    "id": "jskis",
+    "origin": "https://jskis.com",
+    "entryPath": "/",
+    "allowedPathPrefixes": [
+      "/",
+      "/products",
+      "/collections",
+      "/search",
+      "/policies",
+      "/pages",
+      "/blogs",
+      "/cdn/shop",
+      "/cdn/fonts"
+    ],
+    "searchPath": "/search",
+    "searchQueryParam": "q",
+    "readOnlyQueryRules": [
+      {
+        "pathPrefix": "/cdn/shop",
+        "names": ["v", "width", "height", "crop"]
+      },
+      {
+        "pathPrefix": "/products",
+        "names": ["variant", "_pos", "_sid", "_ss"]
+      },
+      {
+        "pathPrefix": "/collections",
+        "names": ["page", "sort_by"]
+      },
+      {
+        "pathPrefix": "/search",
+        "names": ["type", "options[prefix]", "page"]
+      }
+    ],
+    "allowLoopback": false
+  }
+]

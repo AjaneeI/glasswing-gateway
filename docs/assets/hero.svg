@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+<title id="title">Gateway</title><desc id="desc">Evidence-first autonomous commerce testing</desc>
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#312e81"/></linearGradient><linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#67e8f9"/><stop offset="1" stop-color="#a78bfa"/></linearGradient></defs>
+<rect width="1200" height="420" rx="28" fill="url(#bg)"/>
+<g opacity=".18" stroke="#fff"><path d="M0 80H1200M0 160H1200M0 240H1200M0 320H1200"/><path d="M120 0V420M280 0V420M440 0V420M600 0V420M760 0V420M920 0V420M1080 0V420"/></g>
+<g transform="translate(78 70)"><rect width="64" height="64" rx="18" fill="none" stroke="url(#accent)" stroke-width="5"/><path d="M18 22h28M18 32h19M18 42h24" stroke="#fff" stroke-width="4" stroke-linecap="round"/></g>
+<text x="78" y="205" fill="#fff" font-family="Arial,sans-serif" font-size="72" font-weight="700">Gateway</text>
+<text x="78" y="258" fill="#c7d2fe" font-family="Arial,sans-serif" font-size="28">Evidence-first autonomous commerce testing</text>
+<text x="78" y="310" fill="#e5e7eb" font-family="Arial,sans-serif" font-size="19">Review the plan · bound the shopper · replay the evidence · fix what agents experience</text>
+<g transform="translate(785 72)" font-family="Arial,sans-serif"><rect width="335" height="274" rx="22" fill="#0b1020" stroke="#6366f1"/><text x="28" y="45" fill="#a5b4fc" font-size="14" font-weight="700">MERCHANT CONTROL LOOP</text>
+<g fill="#fff" font-size="17"><text x="34" y="91">01  Inspect storefront</text><text x="34" y="133">02  Review shoppers + goals</text><text x="34" y="175">03  Approve bounded test</text><text x="34" y="217">04  Replay + evaluate</text><text x="34" y="259">05  Turn evidence into findings</text></g></g></svg>
