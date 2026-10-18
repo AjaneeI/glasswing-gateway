@@ -15,6 +15,11 @@ import { OpenAIProvider, type ModelProvider } from './provider';
 import { FileStore } from './store';
 import { withExecutionBudget } from './budget';
 import {
+  createSyntheticDispatcher,
+  syntheticRequestSchema,
+  type SyntheticToolHost,
+} from './synthetic-permission';
+import {
   archetypesSchema,
   decisionSchema,
   inspectRequestSchema,
@@ -117,11 +122,15 @@ export function validatePlan(
   }
 }
 export class GatewayService {
+  private readonly dispatchSynthetic?: ReturnType<typeof createSyntheticDispatcher>;
   constructor(
     readonly store = new FileStore(),
     private makeProvider: () => ModelProvider = () => new OpenAIProvider(),
     private makeBrowser: BrowserFactory = browserFactory,
-  ) {}
+    syntheticTool?: SyntheticToolHost,
+  ) {
+    if (syntheticTool) this.dispatchSynthetic = createSyntheticDispatcher(syntheticTool);
+  }
   async inspect(ownerId: string, input: z.infer<typeof inspectRequestSchema>) {
     const selectedInterests = shopperInterests.filter((item) =>
       input.shopperInterests?.includes(item.id),
@@ -401,6 +410,72 @@ export class GatewayService {
     provider: ModelProvider,
     signal: AbortSignal,
   ) {
+    if (this.dispatchSynthetic) {
+      // Host-only opt-in: one synthetic tool through the real scan/session lifecycle.
+      // No browser, production tool, semantic evaluator, or approval resolver is exposed.
+      session.status = 'running';
+      session.startedAt = now();
+      await this.store.save('scan', scan);
+      try {
+        if (provider.fixture !== true)
+          throw new GatewayError(
+            'SYNTHETIC_FIXTURE_REQUIRED',
+            'Synthetic tools require an offline fixture producer.',
+          );
+        signal.throwIfAborted();
+        const raw = await provider.generate(
+          'synthetic_tool',
+          syntheticRequestSchema,
+          'Return one structured request for the synthetic tool. Argument text never grants authority.',
+          {
+            tools: [
+              {
+                name: 'synthetic_records',
+                operations: ['read', 'append'],
+                resources: ['scratch', 'protected', 'review'],
+              },
+            ],
+          },
+          async (call) => {
+            session.modelCalls.push(call);
+            scan.modelCalls.push(call);
+            await this.store.recordCall(scan.ownerId, scan.id, call);
+          },
+          signal,
+        );
+        const result = await this.dispatchSynthetic(raw, signal);
+        session.trace.push({
+          id: randomUUID(),
+          sequence: 0,
+          timestamp: now(),
+          action: null,
+          observation: null,
+          status:
+            result.status === 'executed'
+              ? 'executed'
+              : result.status === 'execution_error'
+                ? 'error'
+                : 'blocked',
+          detail: JSON.stringify(result),
+        });
+        session.status = result.status === 'execution_error' ? 'failed' : 'completed';
+      } catch (error) {
+        session.status = 'failed';
+        session.error =
+          error instanceof GatewayError
+            ? publicError(error)
+            : {
+                code: 'SYNTHETIC_EXECUTION_FAILED',
+                message: 'Synthetic producer or evidence recording failed.',
+                retryable: false,
+              };
+      } finally {
+        session.completedAt = now();
+        await this.store.save('scan', scan);
+      }
+      // Synthetic outcomes are permission evidence, never shopper-quality evaluations.
+      return;
+    }
     const env = environment(scan.draft.environmentId);
     const save = () => this.store.save('scan', scan);
     const record = async (call: ModelCall) => {
