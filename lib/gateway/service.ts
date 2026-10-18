@@ -308,6 +308,7 @@ export class GatewayService {
         ownerId,
         draft,
         fixture: draft.fixture,
+        executionMode: this.dispatchSynthetic ? 'synthetic' : 'browser',
         status: 'queued',
         createdAt: now(),
         startedAt: null,
@@ -357,6 +358,12 @@ export class GatewayService {
           throw new GatewayError(
             'MODE_MISMATCH',
             'Fixture mode changed since this scan was created.',
+            409,
+          );
+        if (scan.executionMode !== (this.dispatchSynthetic ? 'synthetic' : 'browser'))
+          throw new GatewayError(
+            'EXECUTION_MODE_MISMATCH',
+            'Create a new scan after changing the host execution mode or upgrading a historical scan.',
             409,
           );
         const env = environment(scan.draft.environmentId);
@@ -440,6 +447,7 @@ export class GatewayService {
             session.modelCalls.push(call);
             scan.modelCalls.push(call);
             await this.store.recordCall(scan.ownerId, scan.id, call);
+            await this.store.save('scan', scan);
           },
           signal,
         );
@@ -459,10 +467,17 @@ export class GatewayService {
           detail: JSON.stringify(result),
         });
         session.status = result.status === 'execution_error' ? 'failed' : 'completed';
+        if (result.status === 'execution_error')
+          session.error = {
+            code: 'SYNTHETIC_CALLBACK_FAILED',
+            message: 'Synthetic tool callback failed.',
+            retryable: false,
+          };
       } catch (error) {
         session.status = 'failed';
-        session.error =
-          error instanceof GatewayError
+        session.error = signal.aborted
+          ? { code: 'SESSION_TIMEOUT', message: 'Session time limit reached.', retryable: false }
+          : error instanceof GatewayError
             ? publicError(error)
             : {
                 code: 'SYNTHETIC_EXECUTION_FAILED',
@@ -642,8 +657,8 @@ export class GatewayService {
 }
 
 // Next.js keeps globalThis during hot reloads. Version the cached runner so a
-// runner created before screenshot support cannot keep executing stale code.
-const runnerVersion = 4;
+// runner created before execution-mode binding cannot keep executing stale code.
+const runnerVersion = 5;
 const globalGateway = globalThis as typeof globalThis & {
   gatewayService?: GatewayService;
   gatewayServiceVersion?: number;

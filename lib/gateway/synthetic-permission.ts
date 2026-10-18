@@ -32,13 +32,51 @@ type SyntheticRequest = Readonly<{ tool: 'synthetic_records'; arguments: Synthet
 type Rule = Readonly<z.infer<typeof ruleSchema>>;
 export interface SyntheticToolHost {
   policy: unknown;
-  execute: (args: SyntheticArguments) => unknown | Promise<unknown>;
+  /** Cooperatively stop on abort; the host can bound waiting, not roll back effects. */
+  execute: (args: SyntheticArguments, signal: AbortSignal) => unknown | Promise<unknown>;
   evaluate?: (request: SyntheticRequest, policy: readonly Rule[]) => unknown;
 }
 export interface SyntheticResult {
   status: 'executed' | 'denied' | 'pending' | 'execution_error';
   reason: string;
   value?: unknown;
+  valueOmitted?: true;
+}
+
+function recordableValue(value: unknown): Pick<SyntheticResult, 'value' | 'valueOmitted'> {
+  try {
+    const json = JSON.stringify(value);
+    return json === undefined ? { valueOmitted: true } : { value: JSON.parse(json) };
+  } catch {
+    // The callback already ran: preserve execution evidence without retrying it.
+    return { valueOmitted: true };
+  }
+}
+
+async function executeWithAbort(
+  execute: SyntheticToolHost['execute'],
+  args: SyntheticArguments,
+  signal: AbortSignal,
+) {
+  signal.throwIfAborted();
+  let onAbort!: () => void;
+  const aborted = new Promise<never>((_resolve, reject) => {
+    onAbort = () => reject(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+  });
+  try {
+    const value = await Promise.race([
+      aborted,
+      Promise.resolve().then(() => {
+        signal.throwIfAborted();
+        return execute(args, signal);
+      }),
+    ]);
+    signal.throwIfAborted();
+    return value;
+  } finally {
+    signal.removeEventListener('abort', onAbort);
+  }
 }
 
 /** Host setup only. The producer receives the schema and description, never this configuration. */
@@ -61,6 +99,7 @@ export function createSyntheticDispatcher(host: SyntheticToolHost) {
       : host.evaluate;
 
   return async (raw: unknown, signal: AbortSignal): Promise<SyntheticResult> => {
+    signal.throwIfAborted();
     let request: SyntheticRequest;
     try {
       const validated = syntheticRequestSchema.safeParse(raw);
@@ -80,6 +119,7 @@ export function createSyntheticDispatcher(host: SyntheticToolHost) {
       verdict = evaluate(request, policy);
       signal.throwIfAborted();
     } catch {
+      signal.throwIfAborted();
       return { status: 'denied', reason: 'evaluation_failed' };
     }
     if (!decision.safeParse(verdict).success)
@@ -88,8 +128,14 @@ export function createSyntheticDispatcher(host: SyntheticToolHost) {
     if (verdict !== 'allow') return { status: 'denied', reason: 'policy_denied' };
     try {
       // Exactly the frozen argument object evaluated above; no reparse, rewrite, or retry.
-      return { status: 'executed', reason: 'allowed', value: await execute(request.arguments) };
+      const value = await executeWithAbort(execute, request.arguments, signal);
+      return {
+        status: 'executed',
+        reason: 'allowed',
+        ...recordableValue(value),
+      };
     } catch {
+      signal.throwIfAborted();
       return { status: 'execution_error', reason: 'callback_failed' };
     }
   };
