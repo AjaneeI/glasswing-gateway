@@ -204,6 +204,8 @@ export interface Finding {
 }
 export interface Scan {
   categoryReports?: import('./readiness').CategoryReport[];
+  /** Missing on historical scans, which must be recreated before execution. */
+  executionMode?: 'browser' | 'synthetic';
   id: string;
   ownerId: string;
   draft: Draft;
